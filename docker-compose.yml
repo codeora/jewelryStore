@@ -1,5 +1,6 @@
 services:
   jewelry-store-web:
+    build: .
     image: ${APP_IMAGE:-ghcr.io/zeina25/jewelry-store:latest}
     container_name: ${CONTAINER_NAME:-jewelry-store-web}
     restart: unless-stopped
