@@ -1437,11 +1437,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         <g class="dia-glint-group glint-primary" transform="translate(${sp1_x}, ${sp1_y})">
           <circle cx="0" cy="0" r="${Math.round(sp1_s * 0.4 * 10) / 10}" fill="#FFFFFF" opacity="0.95" filter="url(#dia-blur-soft)" />
-          <polygon points="0,-${sp1_s} ${Math.round(sp1_s * 0.2 * 10) / 10},-${Math.round(sp1_s * 0.2 * 10) / 10} ${sp1_s},0 ${Math.round(sp1_s * 0.2 * 10) / 10},${Math.round(sp1_s * 0.2 * 10) / 10} 0,{sp1_s} -${Math.round(sp1_s * 0.2 * 10) / 10},${Math.round(sp1_s * 0.2 * 10) / 10} -${sp1_s},0 -${Math.round(sp1_s * 0.2 * 10) / 10},-${Math.round(sp1_s * 0.2 * 10) / 10}" fill="#FFFFFF" opacity="0.98" />
+          <polygon points="0,-${sp1_s} ${Math.round(sp1_s * 0.2 * 10) / 10},-${Math.round(sp1_s * 0.2 * 10) / 10} ${sp1_s},0 ${Math.round(sp1_s * 0.2 * 10) / 10},${Math.round(sp1_s * 0.2 * 10) / 10} 0,${sp1_s} -${Math.round(sp1_s * 0.2 * 10) / 10},${Math.round(sp1_s * 0.2 * 10) / 10} -${sp1_s},0 -${Math.round(sp1_s * 0.2 * 10) / 10},-${Math.round(sp1_s * 0.2 * 10) / 10}" fill="#FFFFFF" opacity="0.98" />
         </g>
         <g class="dia-glint-group glint-secondary" transform="translate(${sp2_x}, ${sp2_y})">
           <circle cx="0" cy="0" r="${Math.round(sp2_s * 0.35 * 10) / 10}" fill="#FFFFFF" opacity="0.9" filter="url(#dia-blur-soft)" />
-          <polygon points="0,-${sp2_s} ${Math.round(sp2_s * 0.2 * 10) / 10},-${Math.round(sp2_s * 0.2 * 10) / 10} ${sp2_s},0 ${Math.round(sp2_s * 0.2 * 10) / 10},${Math.round(sp2_s * 0.2 * 10) / 10} 0,{sp2_s} -${Math.round(sp2_s * 0.2 * 10) / 10},${Math.round(sp2_s * 0.2 * 10) / 10} -${sp2_s},0 -${Math.round(sp2_s * 0.2 * 10) / 10},-${Math.round(sp2_s * 0.2 * 10) / 10}" fill="#FFFFFF" opacity="0.95" />
+          <polygon points="0,-${sp2_s} ${Math.round(sp2_s * 0.2 * 10) / 10},-${Math.round(sp2_s * 0.2 * 10) / 10} ${sp2_s},0 ${Math.round(sp2_s * 0.2 * 10) / 10},${Math.round(sp2_s * 0.2 * 10) / 10} 0,${sp2_s} -${Math.round(sp2_s * 0.2 * 10) / 10},${Math.round(sp2_s * 0.2 * 10) / 10} -${sp2_s},0 -${Math.round(sp2_s * 0.2 * 10) / 10},-${Math.round(sp2_s * 0.2 * 10) / 10}" fill="#FFFFFF" opacity="0.95" />
         </g>
         ${prongsHtml}
       </svg>
