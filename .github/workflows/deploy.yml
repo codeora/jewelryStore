@@ -161,7 +161,8 @@ jobs:
 
           echo "Pulling latest image and deploying containers..."
           docker compose -p "$COMPOSE_PROJECT_NAME" pull
-          docker compose -p "$COMPOSE_PROJECT_NAME" up -d --remove-orphans
+          docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
+          docker compose -p "$COMPOSE_PROJECT_NAME" up -d --force-recreate --remove-orphans
 
           echo "Verifying health check..."
           HEALTHY=false
