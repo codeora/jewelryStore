@@ -1,6 +1,6 @@
 services:
   jewelry-store-web:
-    image: ${APP_IMAGE:-ghcr.io/zeinasaliba/jewelry-store:latest}
+    image: ${APP_IMAGE:-ghcr.io/zeina25/jewelry-store:latest}
     container_name: ${CONTAINER_NAME:-jewelry-store-web}
     restart: unless-stopped
     ports:
