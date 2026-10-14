@@ -4,7 +4,14 @@
  * Currency, Cart, Wishlist, Filter, Ring Carat Visualizer, Modals & Lebanese Concierge
  */
 
+// Ensure page always starts at the top when refreshed
+if ('scrollRestoration' in history) {
+  history.scrollRestoration = 'manual';
+}
+window.scrollTo(0, 0);
+
 document.addEventListener('DOMContentLoaded', () => {
+  window.scrollTo(0, 0);
   // Application State
   const state = {
     currentCurrency: 'USD',
