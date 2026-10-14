@@ -1,0 +1,43 @@
+name: CI
+
+# CI runs automatically on pull requests and pushes to test code and verify Docker build.
+# This workflow does NOT deploy to the server.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-build:
+    name: Verify Docker Build & Health
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: jewelry-store:test
+          load: true
+
+      - name: Run Test Container & Health Check
+        run: |
+          docker run -d --name jewelry-store-ci -p 8080:80 jewelry-store:test
+          sleep 3
+          curl -f http://127.0.0.1:8080/health || exit 1
+          curl -f http://127.0.0.1:8080/index.html > /dev/null || exit 1
+          docker stop jewelry-store-ci

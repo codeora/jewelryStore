@@ -1,0 +1,12 @@
+{
+  "name": "jewelry-store",
+  "version": "1.0.0",
+  "description": "Maison Aurum Beirut - Lebanese Fine Jewelry & Goldsmiths Website",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "dev": "python3 -m http.server 8000"
+  },
+  "keywords": ["jewelry", "lebanese", "beirut", "luxury", "solitaire", "gold"],
+  "author": "Maison Aurum",
+  "license": "MIT"
+}

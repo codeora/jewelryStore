@@ -1,0 +1,20 @@
+services:
+  jewelry-store-web:
+    image: ${APP_IMAGE:-ghcr.io/zeinasaliba/jewelry-store:latest}
+    container_name: ${CONTAINER_NAME:-jewelry-store-web}
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8085}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - edge-proxy
+
+networks:
+  edge-proxy:
+    name: ${EDGE_NETWORK:-edge-proxy}
+    external: true

@@ -1,0 +1,187 @@
+name: Deploy Jewelry Store
+
+# Deployment runs MANUALLY only via GitHub Actions ("Run workflow" button)
+# Pushing to branches will NOT automatically trigger a deployment.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target Deployment Environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+
+concurrency:
+  group: deploy-jewelry-store-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  APP_NAME: jewelry-store
+  CONTAINER_NAME: jewelry-store-web
+  REGISTRY: ghcr.io
+
+jobs:
+  docker:
+    name: Build & Publish Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+      repository: ${{ steps.image.outputs.repository }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Resolve Docker Repository Name
+        id: image
+        run: |
+          repository="$(echo "${REGISTRY}/${GITHUB_REPOSITORY_OWNER}/${APP_NAME}" | tr '[:upper:]' '[:lower:]')"
+          echo "repository=${repository}" >> "$GITHUB_OUTPUT"
+          echo "image=${repository}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.image.outputs.image }}
+            ${{ steps.image.outputs.repository }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to Server via SSH
+    needs: docker
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Deploy with Docker Compose over SSH
+        env:
+          APP_IMAGE: ${{ needs.docker.outputs.image }}
+          COMPOSE_PROJECT_NAME: ${{ env.APP_NAME }}
+          CONTAINER_NAME: ${{ env.CONTAINER_NAME }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          EDGE_NETWORK: ${{ secrets.EDGE_NETWORK }}
+          APP_PORT: ${{ secrets.APP_PORT }}
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          set -euo pipefail
+
+          : "${DEPLOY_HOST:?Missing DEPLOY_HOST secret}"
+          : "${DEPLOY_USER:?Missing DEPLOY_USER secret}"
+          : "${DEPLOY_SSH_KEY:?Missing DEPLOY_SSH_KEY secret}"
+          : "${DEPLOY_PATH:?Missing DEPLOY_PATH secret}"
+          : "${REGISTRY_USERNAME:?Missing REGISTRY_USERNAME secret}"
+          : "${REGISTRY_PASSWORD:?Missing REGISTRY_PASSWORD secret}"
+
+          SSH_PORT="${SSH_PORT:-22}"
+          APP_PORT="${APP_PORT:-8085}"
+          EDGE_NETWORK="${EDGE_NETWORK:-edge-proxy}"
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          ssh-keyscan -p "$SSH_PORT" -T 15 "$DEPLOY_HOST" >> ~/.ssh/known_hosts || {
+            echo "Failed to scan host key for $DEPLOY_HOST on port $SSH_PORT"
+            exit 1
+          }
+
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            APP_IMAGE="$APP_IMAGE" \
+            APP_PORT="$APP_PORT" \
+            COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" \
+            CONTAINER_NAME="$CONTAINER_NAME" \
+            DEPLOY_PATH="$DEPLOY_PATH" \
+            EDGE_NETWORK="$EDGE_NETWORK" \
+            REGISTRY_USERNAME="$REGISTRY_USERNAME" \
+            REGISTRY_PASSWORD="$REGISTRY_PASSWORD" \
+            'bash -se' <<'REMOTE'
+          set -euo pipefail
+
+          mkdir -p "$DEPLOY_PATH"
+          cd "$DEPLOY_PATH"
+
+          # Login to GitHub Container Registry on the remote server
+          printf '%s\n' "$REGISTRY_PASSWORD" | docker login ghcr.io -u "$REGISTRY_USERNAME" --password-stdin
+
+          # Render docker-compose.yml dynamically on the server
+          cat > docker-compose.yml <<COMPOSE
+          services:
+            ${CONTAINER_NAME}:
+              image: ${APP_IMAGE}
+              container_name: ${CONTAINER_NAME}
+              restart: unless-stopped
+              ports:
+                - "${APP_PORT}:80"
+              healthcheck:
+                test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health >/dev/null 2>&1 || exit 1"]
+                interval: 30s
+                timeout: 5s
+                retries: 3
+                start_period: 10s
+              networks:
+                - edge-proxy
+
+          networks:
+            edge-proxy:
+              name: ${EDGE_NETWORK}
+              external: true
+          COMPOSE
+
+          # Ensure the edge-proxy external network exists, create it if not
+          if ! docker network inspect "$EDGE_NETWORK" >/dev/null 2>&1; then
+            echo "Network '$EDGE_NETWORK' does not exist yet. Creating it..."
+            docker network create "$EDGE_NETWORK" || true
+          fi
+
+          echo "Pulling latest image and deploying containers..."
+          docker compose -p "$COMPOSE_PROJECT_NAME" pull
+          docker compose -p "$COMPOSE_PROJECT_NAME" up -d --remove-orphans
+
+          echo "Verifying health check..."
+          HEALTHY=false
+          for attempt in $(seq 1 15); do
+            if docker compose -p "$COMPOSE_PROJECT_NAME" exec -T "$CONTAINER_NAME" wget -qO- http://127.0.0.1/health >/dev/null 2>&1; then
+              echo "Health check passed successfully on attempt $attempt!"
+              HEALTHY=true
+              break
+            fi
+            echo "Waiting for container to become healthy (attempt $attempt/15)..."
+            sleep 3
+          done
+
+          if [ "$HEALTHY" != "true" ]; then
+            echo "Container health check failed! Dumping logs:"
+            docker compose -p "$COMPOSE_PROJECT_NAME" logs --tail=50
+            exit 1
+          fi
+
+          # Prune obsolete/dangling docker images to preserve VPS disk space
+          docker image prune -f
+          echo "Deployment completed successfully!"
+          REMOTE
